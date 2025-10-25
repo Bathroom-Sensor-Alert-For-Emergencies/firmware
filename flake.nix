@@ -42,10 +42,7 @@
           };
           fqbn = "esp32:esp32:XIAO_ESP32C6";
           port = "/dev/ttyACM0";
-        in {
-          formatter = pkgs.nixpkgs-fmt;
-
-          packages.default = pkgs.stdenv.mkDerivation rec {
+          mkFirmware = type: pkgs.stdenv.mkDerivation rec {
             name = "bsafe";
             src = ./.;
             buildInputs = [
@@ -53,26 +50,32 @@
               pkgs.python3
             ];
             buildPhase = ''
-              arduino-cli compile --fqbn ${fqbn} --export-binaries ./${name}
+              arduino-cli compile --fqbn ${fqbn} --export-binaries --build-property compiler.cpp.extra_flags=-D${type} ./${name}
             '';
             installPhase = ''
               cp -r bsafe/build/* $out/
             '';
           };
-
-          apps.default = {
+          mkApp = pkg: {
             type = "app";
             program = "${pkgs.writeShellScript "upload.sh" ''
-              ${arduino-cli}/bin/arduino-cli upload --port ${port} --fqbn ${fqbn} \
-                --build-path ${self.packages.${system}.default}
+              ${arduino-cli}/bin/arduino-cli upload --port ${port} --fqbn ${fqbn} --build-path ${pkg}
             ''}";
           };
+          sensor = mkFirmware "SENSOR";
+          receiver = mkFirmware "RECEIVER";
+        in {
+          formatter = pkgs.nixpkgs-fmt;
+
+          packages.sensor = sensor;
+          packages.receiver = receiver;
+          apps.sensor = mkApp sensor;
+          apps.receiver = mkApp receiver;
 
           devShells.default = pkgs.mkShell {
             buildInputs = [
               arduino-cli
               pkgs.python3
-              pkgs.picocom
             ];
           };
         }
