@@ -2,11 +2,11 @@
 #include <cstdint>
 
 enum class PacketType : std::uint8_t {
-    alarm,
-    ack_alarm,
-    low_power,
-    pair,
-    heartbeat,
+    Alarm,
+    AckAlarm,
+    LowPower,
+    Pair,
+    Heartbeat,
 };
 
 using DeviceID = std::uint8_t;

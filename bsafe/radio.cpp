@@ -28,5 +28,6 @@ void Radio::listen(void (*on_recv)(Packet)) {
         Radio::on_recv(packet);
         Radio::current->radio.startReceive();
     });
-    this->radio.sleep();
+    // TODO: Low power listening
+    // this->radio.sleep();
 }

@@ -6,23 +6,23 @@
 using enum PacketType;
 
 bool Communicator::alarm() {
-    return sendPacket(Packet{alarm, this->id});
+    return sendPacket(Packet{Alarm, this->id});
 }
 
 bool Communicator::ackAlarm(DeviceID id) {
-    return sendPacket(Packet{ack_alarm, id});
+    return sendPacket(Packet{AckAlarm, id});
 }
 
 bool Communicator::lowPower() {
-    return sendPacket(Packet{low_power, this->id});
+    return sendPacket(Packet{LowPower, this->id});
 }
 
 bool Communicator::pair() {
-    return sendPacket(Packet{pair, this->id});
+    return sendPacket(Packet{Pair, this->id});
 }
 
 bool Communicator::heartbeat() {
-    return sendPacket(Packet{heartbeat, this->id});
+    return sendPacket(Packet{Heartbeat, this->id});
 }
 
 bool Communicator::sendPacket(Packet packet) {

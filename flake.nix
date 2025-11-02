@@ -41,7 +41,7 @@
             ];
           };
           fqbn = "esp32:esp32:XIAO_ESP32C6";
-          port = "/dev/ttyACM0";
+          port = "/dev/ttyACM1";
           mkFirmware = type: pkgs.stdenv.mkDerivation rec {
             name = "bsafe";
             src = ./.;

@@ -23,6 +23,34 @@ void setup() {
     } else {
         Serial.println("Initialized radio");
     }
+
+#ifdef RECEIVER
+    Serial.printf("Listening for packet\n");
+    comm.listen([](Packet packet) {
+        Serial.printf("Received packet: ");
+        using enum PacketType;
+        switch (packet.type) {
+            case Alarm:
+                Serial.printf("Alarm from node %d\n", packet.id);
+                break;
+            case AckAlarm:
+                Serial.printf("Alarm acknowledged by node %d\n", packet.id);
+                break;
+            case LowPower:
+                Serial.printf("Low power from node %d\n", packet.id);
+                break;
+            case Pair:
+                Serial.printf("Pair request\n");
+                break;
+            case Heartbeat:
+                Serial.printf("Heartbeat\n");
+                break;
+            default:
+                Serial.printf("Unknown packet type (%d) received\n", packet.type);
+                break;
+        }
+    });
+#endif
 }
 
 void loop() {
@@ -35,30 +63,6 @@ void loop() {
     digitalWrite(LED_BUILTIN, LOW);
     delay(750);
 #elif defined(RECEIVER)
-    comm.listen([](Packet packet) {
-        Serial.printf("Received packet: ");
-        using enum PacketType;
-        switch (packet.type) {
-            case alarm:
-                Serial.printf("Alarm from node %d\n", packet.id);
-                break;
-            case ack_alarm:
-                Serial.printf("Alarm acknowledged by node %d\n", packet.id);
-                break;
-            case low_power:
-                Serial.printf("Low power from node %d\n", packet.id);
-                break;
-            case pair:
-                Serial.printf("Pair request\n");
-                break;
-            case heartbeat:
-                Serial.printf("Heartbeat\n");
-                break;
-            default:
-                Serial.printf("Unknown packet type (%d) received\n", packet.type);
-                break;
-        }
-    });
 #else
     #error "Must define SENSOR or RECEIVER"
 #endif
