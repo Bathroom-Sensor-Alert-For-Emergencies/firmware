@@ -23,6 +23,7 @@ void Radio::listen(void (*on_recv)(Packet)) {
     Radio::on_recv = on_recv;
     this->radio.setPacketReceivedAction([] {
         Packet packet;
+        // TODO: Error handling?
         Radio::current->radio.readData((std::uint8_t*)&packet, sizeof(packet));
         Radio::current->radio.finishReceive();
         Radio::on_recv(packet);

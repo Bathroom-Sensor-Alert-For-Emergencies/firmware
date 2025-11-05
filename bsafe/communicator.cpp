@@ -17,8 +17,16 @@ bool Communicator::lowPower() {
     return sendPacket(Packet{LowPower, this->id});
 }
 
-bool Communicator::pair() {
-    return sendPacket(Packet{Pair, this->id});
+bool Communicator::pairSensor() {
+    return sendPacket(Packet{PairSensor, this->id});
+}
+
+bool Communicator::pairReceiver() {
+    return sendPacket(Packet{PairReceiver, this->id});
+}
+
+bool Communicator::pairResponse() {
+    return sendPacket(Packet{PairResponse, this->id});
 }
 
 bool Communicator::heartbeat() {
