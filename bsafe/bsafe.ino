@@ -1,6 +1,10 @@
 #include "communicator.hpp"
 #include "radio.hpp"
 
+#if !defined(SENSOR) && !defined(RECEIVER)
+    #error "Must define SENSOR or RECEIVER"
+#endif
+
 const uint32_t cs = D6;
 const uint32_t gdo0 = D5;
 const uint32_t gdo2 = D4;
@@ -62,8 +66,5 @@ void loop() {
     delay(250);
     digitalWrite(LED_BUILTIN, LOW);
     delay(750);
-#elif defined(RECEIVER)
-#else
-    #error "Must define SENSOR or RECEIVER"
 #endif
 }

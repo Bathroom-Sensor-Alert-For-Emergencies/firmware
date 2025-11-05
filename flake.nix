@@ -41,7 +41,6 @@
             ];
           };
           fqbn = "esp32:esp32:XIAO_ESP32C6";
-          port = "/dev/ttyACM1";
           mkFirmware = type: pkgs.stdenv.mkDerivation rec {
             name = "bsafe";
             src = ./.;
@@ -56,7 +55,7 @@
               cp -r bsafe/build/* $out/
             '';
           };
-          mkApp = pkg: {
+          mkApp = pkg: port: {
             type = "app";
             program = "${pkgs.writeShellScript "upload.sh" ''
               ${arduino-cli}/bin/arduino-cli upload --port ${port} --fqbn ${fqbn} --build-path ${pkg}
@@ -69,8 +68,8 @@
 
           packages.sensor = sensor;
           packages.receiver = receiver;
-          apps.sensor = mkApp sensor;
-          apps.receiver = mkApp receiver;
+          apps.sensor = mkApp sensor "/dev/ttyACM0";
+          apps.receiver = mkApp receiver "/dev/ttyACM1";
 
           devShells.default = pkgs.mkShell {
             buildInputs = [
