@@ -22,17 +22,21 @@ void updateState() {
         case Pairing:
             if (millis() > pairing_start + PAIRING_PERIOD_MS) {
                 state = Idle;
+                Serial.printf("Done pairing, found %d sensors\n", num_sensors);
             }
             break;
         case Idle:
             for (std::uint8_t i = 0; i < num_sensors; i++) {
                 if (millis() > last_heartbeats[i] + HEARTBEAT_MAX_PERIOD_MS) {
                     // TODO: Add heartbeat alarm to alarm stack
+                    Serial.printf("Haven't received heartbeat from node %d\n", i);
                 }
             }
             break;
         case Alarmed:
             // TODO: Make buzzer beep and light flash
+            Serial.println("Alarm!");
+            delay(500);
             break;
     }
 }
@@ -46,14 +50,19 @@ void handlePacket(Packet packet) {
             break;
         case AckAlarm:
             // TODO: Remove sensor id from alarm stack
+            // Temporarily just stop alarming
+            if (state == Alarmed) state = Idle;
             break;
         case LowPower:
             // TODO: Add low power alarm to alarm stack
+            Serial.printf("Low power alarm from node %d\n", packet.id);
             break;
         case PairSensor:
+            Serial.printf("Paired new sensor\n");
             num_sensors++;
             break;
         case Heartbeat:
+            Serial.printf("Received heartbeat from node %d\n", packet.id);
             last_heartbeats[packet.id] = millis();
             break;
         case PairReceiver: // Ignore these packets

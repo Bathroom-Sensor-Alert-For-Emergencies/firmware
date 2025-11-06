@@ -15,9 +15,9 @@ enum class State {
 
 State state = State::Pairing;
 
-bool detectMovement() {
-    // TODO: Placeholder to simulate 0.1% chance
-    return random(1000) == 999;
+bool detectUnresponsive() {
+    // TODO: Placeholder to simulate a small chance
+    return random(10000) == 0;
 }
 
 void updateState() {
@@ -27,19 +27,22 @@ void updateState() {
             if (millis() > pairing_start + PAIRING_PERIOD_MS) {
                 comm.id = new_id;
                 state = Idle;
+                Serial.printf("Done pairing, got id %d\n", new_id);
             }
             break;
         case Idle:
-            if (detectMovement()) state = Detected;
+            if (detectUnresponsive()) state = Detected;
             break;
         case Detected: // TODO: Do I really need this state??
             comm.alarm();
             last_alarm_ms = millis();
             state = Alarmed;
+            Serial.printf("Alarmed!\n");
             break;
         case Alarmed:
             if (millis() >= last_alarm_ms + ALARM_RETRY_PERIOD_MS) {
                 comm.alarm();
+                Serial.printf("Retried alarm\n");
                 last_alarm_ms = millis();
             }
             break;
@@ -51,13 +54,18 @@ void handlePacket(Packet packet) {
     using enum State;
     switch (packet.type) {
         case AckAlarm:
-            if (packet.id == comm.id && state == Alarmed) state = Idle;
+            if (packet.id == comm.id && state == Alarmed) {
+                state = Idle;
+                Serial.printf("Node %d acknowledged alarm\n", packet.id);
+            }
             break;
         case PairSensor:
         case PairReceiver:
+            Serial.printf("Received pair request from node %d\n", packet.id);
             comm.pairResponse();
             break;
         case PairResponse:
+            Serial.printf("Received pair response from node %d\n", packet.id);
             if (state == Pairing) {
                 new_id = new_id > packet.id + 1 ? new_id : packet.id + 1; // Our ID must be 1 greater than the maximum ID in the network
             }
