@@ -1,10 +1,5 @@
-#include "comm.hpp"
+#include "config.hpp"
 #include <Arduino.h>
-
-unsigned long last_heartbeat_ms = 0;
-unsigned long last_alarm_ms = 0;
-unsigned long pairing_start = 0;
-std::uint8_t new_id = 0;
 
 enum class State {
     Pairing,
@@ -12,6 +7,25 @@ enum class State {
     Detected,
     Alarmed,
 };
+
+const char* stateName(State s) {
+    using enum State;
+    switch (s) {
+        case Pairing:
+            return "pairing";
+        case Idle:
+            return "idle";
+        case Detected:
+            return "detected";
+        case Alarmed:
+            return "alarmed";
+    }
+}
+
+unsigned long last_heartbeat_ms = 0;
+unsigned long last_alarm_ms = 0;
+unsigned long pairing_start = 0;
+std::uint8_t new_id = 0;
 
 State state = State::Pairing;
 
@@ -22,6 +36,14 @@ bool detectUnresponsive() {
 
 void updateState() {
     using enum State;
+
+    // Send heartbeat
+    if (state != Pairing && millis() >= last_heartbeat_ms + HEARTBEAT_PERIOD_MS) {
+        last_heartbeat_ms = millis();
+        comm.heartbeat();
+        Serial.println("Sent heartbeat");
+    }
+
     switch (state) {
         case Pairing:
             if (millis() > pairing_start + PAIRING_PERIOD_MS) {
@@ -57,6 +79,8 @@ void handlePacket(Packet packet) {
             if (packet.id == comm.id && state == Alarmed) {
                 state = Idle;
                 Serial.printf("Node %d acknowledged alarm\n", packet.id);
+            } else {
+                Serial.printf("Noticed alarm acknowledgement for node %d\n", packet.id);
             }
             break;
         case PairSensor:
@@ -93,7 +117,8 @@ void setup() {
 
     comm.pairSensor(); // After turning on, request to pair
     pairing_start = millis();
-    comm.listen(handlePacket);
+    // comm.listen(handlePacket);
+    comm.startRecv();
 
     return;
 err:
@@ -101,10 +126,17 @@ err:
 }
 
 void loop() {
-    if (state != State::Pairing && millis() >= last_heartbeat_ms + HEARTBEAT_PERIOD_MS) {
-        last_heartbeat_ms = millis();
-        comm.heartbeat();
+    if (millis() % 1000 == 0) {
+        Serial.printf("In %s state\n", stateName(state));
+        delay(2);
     }
 
-    updateState();
+    Packet packet;
+    if (comm.getPacket(&packet)) {
+        handlePacket(packet);
+        updateState();
+        comm.startRecv();
+    } else {
+        updateState();
+    }
 }

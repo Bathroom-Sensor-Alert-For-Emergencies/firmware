@@ -10,10 +10,14 @@ public:
 
     bool begin() override;
     void listen(void (*on_recv)(Packet)) override;
+    void startRecv() override;
+    bool getPacket(Packet* packet) override;
 private:
     CC1101 radio;
     inline static Radio* current;
     inline static void (*on_recv)(Packet);
+    // inline static bool ready;
+    // inline static Packet* packet;
 
     bool send(std::uint8_t* data, std::size_t len) override;
     bool recv(std::uint8_t* data, std::size_t len) override;
