@@ -68,8 +68,8 @@
 
           packages.sensor = sensor;
           packages.receiver = receiver;
-          apps.sensor = mkApp sensor "/dev/ttyACM1";
-          apps.receiver = mkApp receiver "/dev/ttyACM0";
+          apps.sensor = mkApp sensor "/dev/ttyACM0";
+          apps.receiver = mkApp receiver "/dev/ttyACM1";
 
           devShells.default = pkgs.mkShell {
             buildInputs = [

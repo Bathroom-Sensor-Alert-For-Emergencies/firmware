@@ -1,7 +1,14 @@
+// #if defined(SENSOR)
+//     #include "sensor.hpp"
+// #elif defined(RECEIVER)
+//     #include "receiver.hpp"
+// #else
+//     #error "Must define SENSOR or RECEIVER"
+// #endif
 #if defined(SENSOR)
-    #include "sensor.hpp"
+    #include "test.hpp"
 #elif defined(RECEIVER)
-    #include "receiver.hpp"
+    #include "sleep.hpp"
 #else
     #error "Must define SENSOR or RECEIVER"
 #endif
