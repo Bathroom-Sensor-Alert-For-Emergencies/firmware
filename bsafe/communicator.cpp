@@ -33,6 +33,10 @@ bool Communicator::heartbeat() {
     return sendPacket(Packet{Heartbeat, this->id});
 }
 
+bool Communicator::disconnect() {
+    return sendPacket(Packet{Disconnect, this->id});
+}
+
 bool Communicator::sendPacket(Packet packet) {
     return send((std::uint8_t*)&packet, sizeof(packet));
 }

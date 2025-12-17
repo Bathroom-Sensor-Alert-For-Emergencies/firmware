@@ -2,6 +2,7 @@
 #include <cstdint>
 
 enum class PacketType : std::uint8_t {
+    // Invalid = 0,
     Alarm, // Sensor notifies receivers when it detects an unresponsive client
     AckAlarm, // Receiver acknowledges an alarm
     LowPower, // Sensor notifies receivers of low power
@@ -9,6 +10,7 @@ enum class PacketType : std::uint8_t {
     PairReceiver, // Receiver requests responses from all sensors. Ignore id field
     PairResponse, // Sensor response to pair packet
     Heartbeat, // Sensor sends periodically. Receivers display error if didn't receive from all sensors
+    Disconnect, // Sensors must send before turning off to prevent erroneous alarms
 };
 
 // Maximum of 256 sensors

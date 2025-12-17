@@ -21,6 +21,30 @@ const char* stateName(State s) {
     }
 }
 
+const char* packetName(PacketType ty) {
+    using enum PacketType;
+    switch (ty) {
+        case Alarm:
+            return "Alarm";
+        case AckAlarm:
+            return "AckAlarm";
+        case LowPower:
+            return "LowPower";
+        case PairSensor:
+            return "PairSensor";
+        case PairReceiver:
+            return "PairReceiver";
+        case PairResponse:
+            return "PairResponse";
+        case Heartbeat:
+            return "Heartbeat";
+        case Disconnect:
+            return "Disconnect";
+        default:
+            return "Invalid";
+    }
+}
+
 enum class AlarmType {
     Heartbeat,
     Alarm,
@@ -48,15 +72,15 @@ struct Alarm {
 };
 
 
-volatile unsigned long pairing_start = 0;
+unsigned long pairing_start = 0;
 // TODO: What happens if a sensor gets removed from the network?
 // Disconnect button that sends special message?
-volatile std::uint8_t num_sensors = 0;
-volatile unsigned long last_heartbeats[256];
+std::uint8_t num_sensors = 0;
+unsigned long last_heartbeats[256];
 
-std::stack<Alarm> alarms;
+std::stack<Alarm> alarms{};
 
-volatile State state = State::Pairing;
+State state = State::Pairing;
 
 void setAlarm(bool enable) {
     // static unsigned long last_turn_on = 0;
@@ -79,6 +103,10 @@ void updateState() {
     switch (state) {
         case Pairing:
             if (millis() > pairing_start + PAIRING_PERIOD_MS) {
+                // Initialize heartbeat timestamps
+                for (std::uint8_t i = 0; i < num_sensors; i++) {
+                    last_heartbeats[i] = millis();
+                }
                 state = Idle;
                 Serial.printf("Done pairing, found %d sensors\n", num_sensors);
                 // while (true) delay(100);
@@ -103,11 +131,13 @@ void updateState() {
 
                 if (!alarms.empty()) {
                     Alarm alarm = alarms.top();
+
                     if (alarm.type == AlarmType::Heartbeat) {
                         last_heartbeats[alarm.id] = millis(); // Give enough time for heartbeat to come
+                        Serial.printf("Acknowledged heartbeat alarm for node %d\n", alarm.id);
                     } else {
                         comm.ackAlarm(alarm.id);
-                        Serial.printf("Sent acknowledgement to node %d for %s alarm\n", alarms.top().id, alarm.name());
+                        Serial.printf("Sent acknowledgement to node %d for %s alarm\n", alarm.id, alarm.name());
                     }
 
                     alarms.pop();
@@ -120,7 +150,7 @@ void updateState() {
                 }
 
                 // TODO: Lazy debounce
-                delay(250);
+                while (buttonPressed()) delay(100);
             }
             break;
     }
@@ -164,14 +194,17 @@ void handlePacket(Packet packet) {
             break;
         case AckAlarm: // Ignore these packets
         case PairReceiver:
+        case Disconnect: // TODO
+            break;
         default: // TODO: Remember to test bad packet type
-            Serial.printf("Unknown packet type (%d) received\n", packet.type);
+            Serial.printf("Unknown packet type (%d, %d) received\n", packet.type, packet.id);
             break;
     }
 }
 
 void setup() {
     Serial.begin(115200);
+    delay(2000);
 
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, LOW);
@@ -185,10 +218,13 @@ void setup() {
         goto err;
     }
 
+    Serial.println("Initialized");
+
     comm.pairReceiver(); // After turning on, request to pair
     pairing_start = millis();
-    // comm.listen(handlePacket);
     comm.startRecv();
+
+    Serial.println("Sent pair receiver request");
 
     return;
 err:
@@ -203,8 +239,10 @@ void loop() {
         delay(2);
     }
 
-    Packet packet;
+    Packet packet{};
+    // Serial.printf("Uninitialized: %d, %d\n", packet.type, packet.id);
     if (comm.getPacket(&packet)) {
+        // Serial.printf("Got %s packet with id %d\n", packetName(packet.type), packet.id);
         handlePacket(packet);
         updateState();
         comm.startRecv();

@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "detector.hpp"
 #include <Arduino.h>
 
 enum class State {
@@ -29,20 +30,20 @@ std::uint8_t new_id = 0;
 
 State state = State::Pairing;
 
-bool detectUnresponsive() {
-    // TODO: Placeholder to simulate a small chance
-    return random(10000) == 0;
-}
+Detector detector{otz, tx, rx};
 
 void updateState() {
     using enum State;
 
     // Send heartbeat
-    if (state != Pairing && millis() >= last_heartbeat_ms + HEARTBEAT_PERIOD_MS) {
+    if (state != Pairing && millis() > last_heartbeat_ms + HEARTBEAT_PERIOD_MS) {
         last_heartbeat_ms = millis();
         comm.heartbeat();
         Serial.println("Sent heartbeat");
     }
+
+    // Read motion detector data
+    detector.update();
 
     switch (state) {
         case Pairing:
@@ -53,7 +54,7 @@ void updateState() {
             }
             break;
         case Idle:
-            if (detectUnresponsive()) state = Detected;
+            if (detector.isUnresponsive()) state = Detected;
             break;
         case Detected: // TODO: Do I really need this state??
             comm.alarm();
@@ -91,7 +92,8 @@ void handlePacket(Packet packet) {
         case PairResponse:
             Serial.printf("Received pair response from node %d\n", packet.id);
             if (state == Pairing) {
-                new_id = new_id > packet.id + 1 ? new_id : packet.id + 1; // Our ID must be 1 greater than the maximum ID in the network
+                // Our ID must be 1 greater than the maximum ID in the network
+                new_id = new_id >= packet.id ? new_id : packet.id + 1;
             }
             break;
         case Alarm: // Ignore these packets
@@ -106,6 +108,7 @@ void handlePacket(Packet packet) {
 
 void setup() {
     Serial.begin(115200);
+    delay(2000);
 
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, LOW);
@@ -115,10 +118,18 @@ void setup() {
         goto err;
     }
 
+    if (!detector.begin()) {
+        Serial.println("Error initializing motion detector");
+        goto err;
+    }
+
+    Serial.println("Initialized");
+
     comm.pairSensor(); // After turning on, request to pair
     pairing_start = millis();
-    // comm.listen(handlePacket);
     comm.startRecv();
+
+    Serial.println("Sent pair sensor request");
 
     return;
 err:

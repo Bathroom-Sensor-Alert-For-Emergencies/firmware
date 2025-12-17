@@ -34,6 +34,7 @@
           arduino-cli = pkgs.wrapArduinoCLI {
             libraries = with pkgs.arduinoLibraries; [
               (arduino-nix.latestVersion RadioLib)
+              (arduino-nix.latestVersion EspSoftwareSerial)
             ];
 
             packages = with pkgs.arduinoPackages; [
@@ -69,7 +70,7 @@
           packages.sensor = sensor;
           packages.receiver = receiver;
           apps.sensor = mkApp sensor "/dev/ttyACM0";
-          apps.receiver = mkApp receiver "/dev/ttyACM1";
+          apps.receiver = mkApp receiver "/dev/ttyACM0";
 
           devShells.default = pkgs.mkShell {
             buildInputs = [

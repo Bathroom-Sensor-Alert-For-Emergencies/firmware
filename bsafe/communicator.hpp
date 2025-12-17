@@ -17,9 +17,9 @@ public:
     bool pairReceiver();
     bool pairResponse();
     bool heartbeat();
+    bool disconnect();
     bool sendPacket(Packet packet);
     bool recvPacket(Packet* packet);
-    virtual void listen(void (*on_recv)(Packet)) = 0;
     virtual void startRecv() = 0;
     virtual bool getPacket(Packet* packet) = 0;
 private:

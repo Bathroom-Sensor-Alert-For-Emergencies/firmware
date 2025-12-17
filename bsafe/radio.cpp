@@ -8,11 +8,28 @@ Radio::Radio(std::uint32_t cs, std::uint32_t gdo0, std::uint32_t gdo2)
 
 bool Radio::begin() {
     int err = this->radio.begin();
-    return err == RADIOLIB_ERR_NONE;
+    if (err != RADIOLIB_ERR_NONE) {
+        Serial.println("Error initializing radio");
+        return false;
+    }
+
+    err = this->radio.setPreambleLength(128);
+    if (err != RADIOLIB_ERR_NONE) {
+        Serial.println("Error setting preamble length");
+        return false;
+    }
+
+    return true;
 }
 
 bool Radio::send(std::uint8_t* data, std::size_t len) {
-    return this->radio.transmit(data, len) == RADIOLIB_ERR_NONE;
+    int err = this->radio.transmit(data, len);
+    if (err != RADIOLIB_ERR_NONE) {
+        Serial.printf("Error sending data: %d\n", err);
+        return false;
+    }
+
+    return true;
 }
 
 bool Radio::recv(std::uint8_t* data, std::size_t len) {
@@ -31,26 +48,17 @@ void Radio::startRecv() {
 
 bool Radio::getPacket(Packet* packet) {
     if (!ready_flag) return false;
-
     ready_flag = false;
-    int err = this->radio.readData((std::uint8_t*)packet, sizeof(*packet));
-    if (err != RADIOLIB_ERR_NONE) Serial.printf("Error reading data: %d\n", err);
-    this->radio.finishReceive();
-    return err != RADIOLIB_ERR_NONE;
-}
 
-void Radio::listen(void (*on_recv)(Packet)) {
-    Radio::current = this;
-    Radio::on_recv = on_recv;
-    this->radio.setPacketReceivedAction([] {
-        Packet packet;
-        // TODO: Error handling?
-        Radio::current->radio.readData((std::uint8_t*)&packet, sizeof(packet));
-        Radio::current->radio.finishReceive();
-        Radio::on_recv(packet);
-        Radio::current->radio.startReceive();
-    });
-    this->radio.startReceive();
-    // TODO: Low power listening
-    // this->radio.sleep();
+    int err = this->radio.readData((std::uint8_t*)packet, sizeof(*packet));
+    if (err != RADIOLIB_ERR_NONE) {
+        Serial.printf("Error reading data: %d\n", err);
+        return false;
+    }
+
+    err = this->radio.finishReceive();
+    if (err != RADIOLIB_ERR_NONE) {
+        Serial.printf("Error cleaning up: %d\n", err);
+    }
+    return err == RADIOLIB_ERR_NONE;
 }
