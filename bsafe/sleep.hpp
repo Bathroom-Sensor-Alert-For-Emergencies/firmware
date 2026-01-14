@@ -11,8 +11,7 @@ CC1101 radio = new Module(cs, gdo0, RADIOLIB_NC, gdo2);
 
 RTC_DATA_ATTR unsigned long long last_heartbeat_us = 0;
 RTC_DATA_ATTR unsigned long long epoch = 0;
-// RTC_DATA_ATTR bool first_boot = true;
-const unsigned long long CYCLE_TIME_US = 5 * 1000 * 1000;
+const unsigned long long CYCLE_TIME_US = 7 * 1000 * 1000;
 const unsigned long long WAKE_TIME_US = 250 * 1000;
 const unsigned long long SLEEP_TIME_US = CYCLE_TIME_US - WAKE_TIME_US;
 
@@ -20,28 +19,10 @@ volatile bool available = false;
 
 void setup() {
     Serial.begin(115200);
-    // delay(2000);
-    // Serial.printf("Woke up, epoch = %lld\n", epoch);
+    delay(2000);
+    Serial.printf("Woke up, epoch = %lld\n", epoch);
 
     radio.begin();
-
-    // while (true) {
-    //     Serial.printf("Receiving: ");
-    //     uint8_t buf[15];
-    //     int err = radio.receive(buf, 15);
-    //     buf[14] = 0;
-    //     // radio.finishReceive();
-    //     // radio.startReceive();
-    //     if (buf[0] == 1) {
-    //         // Sync packet
-    //         epoch = *(unsigned long long*)&buf[1];
-    //         Serial.printf("Syncing, epoch = %lld\n", epoch);
-    //     } else {
-    //         // Data packet
-    //         Serial.printf("Received '%s', err = %d\n", &buf[1], err);
-    //     }
-    // }
-    //
 
     radio.setPacketReceivedAction([] {
         available = true;
@@ -50,7 +31,7 @@ void setup() {
     radio.startReceive();
 
     unsigned long long last_wake_us = esp_rtc_get_time_us();
-    // Serial.printf("Sending heartbeat at %lld, offset = %lld\n", last_wake_us, (last_wake_us - epoch) % CYCLE_TIME_US);
+    Serial.printf("Sending heartbeat at %lld, offset = %lld\n", last_wake_us, (last_wake_us - epoch) % CYCLE_TIME_US);
 
     while (esp_rtc_get_time_us() < (last_wake_us + WAKE_TIME_US)) {
         if (available) {
@@ -66,10 +47,10 @@ void setup() {
             if (buf[0] == 1) {
                 // Sync packet
                 epoch = *(unsigned long long*)&buf[1];
-                // Serial.printf("Syncing, epoch = %lld\n", epoch);
+                Serial.printf("Syncing, epoch = %lld\n", epoch);
             } else {
                 // Data packet
-                // Serial.printf("Received '%s', err = %d\n", &buf[1], err);
+                Serial.printf("Received '%s', err = %d\n", &buf[1], err);
             }
         }
     }
@@ -81,7 +62,7 @@ void setup() {
         offset = 0;
     }
     esp_sleep_enable_timer_wakeup(CYCLE_TIME_US - offset);
-    // Serial.printf("Going to sleep, measured offset of %lld, sleeping for %lld\n", offset, CYCLE_TIME_US - offset);
+    Serial.printf("Going to sleep, measured offset of %lld, sleeping for %lld\n", offset, CYCLE_TIME_US - offset);
     esp_deep_sleep_start();
 }
 
