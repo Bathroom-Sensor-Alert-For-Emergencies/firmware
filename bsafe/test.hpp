@@ -1,45 +1,60 @@
 #include "esp_rtc_time.h"
 #include <Arduino.h>
-#include <RadioLib.h>
+#include <HardwareSerial.h>
 
-const uint32_t cs = D6;
-const uint32_t gdo0 = D5;
-const uint32_t gdo2 = D4;
-CC1101 radio = new Module(cs, gdo0, RADIOLIB_NC, gdo2);
-
-const unsigned long long CYCLE_TIME_US = 7 * 1000 * 1000;
-const unsigned long long WAKE_TIME_US = 250 * 1000;
-unsigned long long epoch;
+HardwareSerial uart(0);
+const uint32_t rst = D5;
 
 void setup() {
     Serial.begin(115200);
-    delay(2000);
-    Serial.println("Initialized serial");
 
-    int err = radio.begin();
-    Serial.printf("Initialized radio, err = %d\n", err);
+    uart.begin(115200);
+    delay(2000);
+    Serial.println("Initialized serial and uart");
+
+    pinMode(rst, OUTPUT);
+    digitalWrite(rst, LOW);
+    delay(100);
+    digitalWrite(rst, HIGH);
+    delay(3000);
+    Serial.println("Reset LoRa module");
+
+    while (uart.available() > 0) uart.read();
+    uart.printf("AT\r\n");
+    uart.flush();
+    delay(2000);
+
+    if (uart.available() <= 0) {
+        Serial.println("No response from LoRa module");
+    }
+
+    while (uart.available() > 0) {
+        String resp = uart.readString();
+        Serial.printf("Got response '%s'\n", resp.c_str());
+        // uint8_t byte = uart.read();
+        // Serial.printf("0x%02X '%c'\n", byte, isprint(byte) ? byte : '.');
+    }
 }
 
 void loop() {
-    if (esp_rtc_get_time_us() > (epoch + CYCLE_TIME_US)) {
-        epoch += CYCLE_TIME_US;
-    }
-    {
+    static int i = 0;
+    uart.printf("AT+SEND=0,19,Hello, world! (%03d)\r\n", i);
+    delay(1000);
+    Serial.printf("Sent (%d), ", i);
 
-        // Send sync packet
-        const size_t len = 15; // For hello world message
-        uint8_t buf[len];
-        buf[0] = 1;
-        *(unsigned long long*)&buf[1] = epoch;
-        buf[14] = 0;
-        int err = radio.transmit(buf, len);
-        Serial.printf("Sent sync, epoch = %lld, err = %d\n", epoch, err);
-
-        // Send as many data packets as possible
-        unsigned long long start = esp_rtc_get_time_us();
-        while (esp_rtc_get_time_us() <= (start + WAKE_TIME_US)) {
-            err = radio.transmit((uint8_t*)"\0Hello, world!", len);
-            Serial.printf("Sent data, err = %d\n", err);
+    auto start = millis();
+    while (millis() < (start + 5000)) {
+        if (uart.available() > 0) {
+            String resp = uart.readString();
+            Serial.printf("got response '%s'\n", resp.c_str());
+            goto end;
         }
     }
+
+    Serial.println("no response from module");
+
+
+end:
+    i++;
+    delay(500);
 }

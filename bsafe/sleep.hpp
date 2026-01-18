@@ -1,69 +1,45 @@
-#include "driver/rtc_io.h"
 #include "esp_rtc_time.h"
-#include "esp_sleep.h"
 #include <Arduino.h>
-#include <RadioLib.h>
+#include <HardwareSerial.h>
 
-const uint32_t cs = D6;
-const uint32_t gdo0 = D0;
-const uint32_t gdo2 = D1;
-CC1101 radio = new Module(cs, gdo0, RADIOLIB_NC, gdo2);
-
-RTC_DATA_ATTR unsigned long long last_heartbeat_us = 0;
-RTC_DATA_ATTR unsigned long long epoch = 0;
-const unsigned long long CYCLE_TIME_US = 7 * 1000 * 1000;
-const unsigned long long WAKE_TIME_US = 250 * 1000;
-const unsigned long long SLEEP_TIME_US = CYCLE_TIME_US - WAKE_TIME_US;
-
-volatile bool available = false;
+HardwareSerial uart(0);
+const uint32_t rst = D5;
 
 void setup() {
     Serial.begin(115200);
+
+    uart.begin(115200);
     delay(2000);
-    Serial.printf("Woke up, epoch = %lld\n", epoch);
+    Serial.println("Initialized serial and uart");
 
-    radio.begin();
+    pinMode(rst, OUTPUT);
+    digitalWrite(rst, LOW);
+    delay(100);
+    digitalWrite(rst, HIGH);
+    delay(3000);
+    Serial.println("Reset LoRa module");
 
-    radio.setPacketReceivedAction([] {
-        available = true;
-    });
+    while (uart.available() > 0) uart.read();
+    uart.printf("AT\r\n");
+    uart.flush();
+    delay(2000);
 
-    radio.startReceive();
-
-    unsigned long long last_wake_us = esp_rtc_get_time_us();
-    Serial.printf("Sending heartbeat at %lld, offset = %lld\n", last_wake_us, (last_wake_us - epoch) % CYCLE_TIME_US);
-
-    while (esp_rtc_get_time_us() < (last_wake_us + WAKE_TIME_US)) {
-        if (available) {
-            available = false;
-
-            // "Hello, world!\0"
-            const size_t len = 15;
-            uint8_t buf[len];
-            int err = radio.readData(buf, len);
-            buf[len - 1] = 0;
-            radio.finishReceive();
-            radio.startReceive();
-            if (buf[0] == 1) {
-                // Sync packet
-                epoch = *(unsigned long long*)&buf[1];
-                Serial.printf("Syncing, epoch = %lld\n", epoch);
-            } else {
-                // Data packet
-                Serial.printf("Received '%s', err = %d\n", &buf[1], err);
-            }
-        }
+    if (uart.available() <= 0) {
+        Serial.println("No response from LoRa module");
     }
 
-    radio.sleep();
-    unsigned long long offset = (esp_rtc_get_time_us() - epoch) % CYCLE_TIME_US;
-    if (epoch == 0) {
-        epoch = esp_rtc_get_time_us();
-        offset = 0;
+    while (uart.available() > 0) {
+        String resp = uart.readString();
+        Serial.printf("Got response '%s'\n", resp.c_str());
+        // uint8_t byte = uart.read();
+        // Serial.printf("0x%02X '%c'\n", byte, isprint(byte) ? byte : '.');
     }
-    esp_sleep_enable_timer_wakeup(CYCLE_TIME_US - offset);
-    Serial.printf("Going to sleep, measured offset of %lld, sleeping for %lld\n", offset, CYCLE_TIME_US - offset);
-    esp_deep_sleep_start();
 }
 
-void loop() {}
+void loop() {
+    if (uart.available() > 0) {
+        String resp = uart.readString();
+        Serial.printf("got response '%s'\n", resp.c_str());
+    }
+}
+
