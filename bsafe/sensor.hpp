@@ -30,13 +30,11 @@ std::uint8_t new_id = 0;
 
 State state = State::Pairing;
 
-Detector detector{otz, tx, rx};
-
 void updateState() {
     using enum State;
 
     // Send heartbeat
-    if (state != Pairing && millis() > last_heartbeat_ms + HEARTBEAT_PERIOD_MS) {
+    if (state != Pairing && millis() - last_heartbeat_ms > HEARTBEAT_PERIOD_MS) {
         last_heartbeat_ms = millis();
         comm.heartbeat();
         Serial.println("Sent heartbeat");
@@ -47,7 +45,7 @@ void updateState() {
 
     switch (state) {
         case Pairing:
-            if (millis() > pairing_start + PAIRING_PERIOD_MS) {
+            if (millis() - pairing_start > PAIRING_PERIOD_MS) {
                 comm.id = new_id;
                 state = Idle;
                 Serial.printf("Done pairing, got id %d\n", new_id);
@@ -114,7 +112,7 @@ void setup() {
     digitalWrite(LED_BUILTIN, LOW);
 
     if (!comm.begin()) {
-        Serial.println("Error initializing radio");
+        Serial.println("Error initializing LoRa module");
         goto err;
     }
 

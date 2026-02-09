@@ -35,14 +35,16 @@
             libraries = with pkgs.arduinoLibraries; [
               (arduino-nix.latestVersion RadioLib)
               (arduino-nix.latestVersion EspSoftwareSerial)
+              (arduino-nix.latestVersion LiquidCrystal)
             ];
 
             packages = with pkgs.arduinoPackages; [
               platforms.esp32.esp32."3.3.2"
             ];
           };
-          fqbn = "esp32:esp32:XIAO_ESP32C6";
-          mkFirmware = type: pkgs.stdenv.mkDerivation rec {
+          fqbn_xiao = "esp32:esp32:XIAO_ESP32C6";
+          fqbn_wroom = "esp32:esp32:esp32da";
+          mkFirmware = type: fqbn: pkgs.stdenv.mkDerivation rec {
             name = "bsafe";
             src = ./.;
             buildInputs = [
@@ -56,21 +58,21 @@
               cp -r bsafe/build/* $out/
             '';
           };
-          mkApp = pkg: port: {
+          mkApp = pkg: port: fqbn: {
             type = "app";
             program = "${pkgs.writeShellScript "upload.sh" ''
               ${arduino-cli}/bin/arduino-cli upload --port ${port} --fqbn ${fqbn} --build-path ${pkg}
             ''}";
           };
-          sensor = mkFirmware "SENSOR";
-          receiver = mkFirmware "RECEIVER";
+          sensor = mkFirmware "SENSOR" fqbn_wroom;
+          receiver = mkFirmware "RECEIVER" fqbn_wroom;
         in {
           formatter = pkgs.nixpkgs-fmt;
 
           packages.sensor = sensor;
           packages.receiver = receiver;
-          apps.sensor = mkApp sensor "/dev/ttyACM0";
-          apps.receiver = mkApp receiver "/dev/ttyACM0";
+          apps.sensor = mkApp sensor "/dev/ttyUSB0" fqbn_wroom;
+          apps.receiver = mkApp receiver "/dev/ttyUSB0" fqbn_wroom;
 
           devShells.default = pkgs.mkShell {
             buildInputs = [

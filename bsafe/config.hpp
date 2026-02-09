@@ -1,29 +1,26 @@
 #pragma once
 #include "communicator.hpp"
-#include "radio.hpp"
-#include <Arduino.h>
-
-const uint32_t cs = D6;
+#include "lora.hpp"
+#include "lcd.hpp"
 
 #if defined(SENSOR)
-const uint32_t gdo0 = D0;
-const uint32_t gdo2 = D1;
+// TODO: New sensor pins
 const uint32_t otz = D3;
 const uint32_t tx = D4;
 const uint32_t rx = D5;
+// Detector detector{otz, tx, rx};
 #elif defined(RECEIVER)
-const uint32_t gdo0 = D5;
-const uint32_t gdo2 = D4;
+const uint32_t ack_button = 19;
+const uint32_t pair_led = 18;
+const uint32_t low_power_led = 5;
+const uint32_t speaker = 6;
+const int speaker_freq = 440; // A4
+const int speaker_duration = 1000; // 1 s
+LCD lcd(12, 13, 14, 27, 26, 25);
+LoRa lora{0, 23};
+Communicator& comm = lora;
 #else
     #error "Must define SENSOR or RECEIVER"
-#endif
-
-Radio radio{cs, gdo0, gdo2};
-Communicator& comm = radio;
-
-#ifdef RECEIVER
-const uint32_t ack_button = D0;
-const uint32_t alarm_led = D1;
 #endif
 
 const unsigned long HEARTBEAT_PERIOD_MS = 5000;

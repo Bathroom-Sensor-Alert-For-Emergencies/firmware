@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "alarm.hpp"
 #include <Arduino.h>
 #include <stack>
 #include <vector>
@@ -21,60 +22,7 @@ const char* stateName(State s) {
     }
 }
 
-const char* packetName(PacketType ty) {
-    using enum PacketType;
-    switch (ty) {
-        case Alarm:
-            return "Alarm";
-        case AckAlarm:
-            return "AckAlarm";
-        case LowPower:
-            return "LowPower";
-        case PairSensor:
-            return "PairSensor";
-        case PairReceiver:
-            return "PairReceiver";
-        case PairResponse:
-            return "PairResponse";
-        case Heartbeat:
-            return "Heartbeat";
-        case Disconnect:
-            return "Disconnect";
-        default:
-            return "Invalid";
-    }
-}
-
-enum class AlarmType {
-    Heartbeat,
-    Alarm,
-    LowPower,
-};
-
-struct Alarm {
-    AlarmType type{};
-    DeviceID id{};
-
-    Alarm() = default;
-    Alarm(AlarmType type, DeviceID id) : type{type}, id{id} {}
-
-    const char* name() {
-        using enum AlarmType;
-        switch (this->type) {
-            case Heartbeat:
-                return "heartbeat";
-            case Alarm:
-                return "unresponsive";
-            case LowPower:
-                return "low power";
-        }
-    }
-};
-
-
 unsigned long pairing_start = 0;
-// TODO: What happens if a sensor gets removed from the network?
-// Disconnect button that sends special message?
 std::uint8_t num_sensors = 0;
 unsigned long last_heartbeats[256];
 
@@ -91,7 +39,12 @@ void setAlarm(bool enable) {
     //
     // bool high = ((millis() - last_turn_on) / LED_BLINK_PERIOD_MS) % 2 == 0;
     // digitalWrite(alarm_led, enabled && high ? HIGH : LOW);
-    digitalWrite(alarm_led, enable ? HIGH : LOW);
+    // digitalWrite(alarm_led, enable ? HIGH : LOW);
+    if (enable){
+        tone(speaker, speaker_freq, speaker_duration);
+    } else {
+        noTone(speaker);
+    }
 }
 
 inline bool buttonPressed() {
@@ -118,6 +71,7 @@ void updateState() {
                 if (millis() > last_heartbeats[i] + HEARTBEAT_MAX_PERIOD_MS) {
                     // Add heartbeat alarm to alarm stack
                     alarms.emplace(AlarmType::Heartbeat, i);
+                    lcd.emplace(AlarmType::Heartbeat, i);
                     state = Alarmed;
                     Serial.printf("Haven't received heartbeat from node %d\n", i);
                 }
@@ -128,6 +82,7 @@ void updateState() {
 
             if (buttonPressed()) {
                 Serial.println("Pressed alarm acknowledge button");
+                lcd.dequeue();
 
                 if (!alarms.empty()) {
                     Alarm alarm = alarms.top();
@@ -164,6 +119,7 @@ void handlePacket(Packet packet) {
             // Add alarm to stack
             if (state != Pairing) {
                 alarms.emplace(AlarmType::Alarm, packet.id);
+                lcd.emplace(AlarmType::Alarm, packet.id);
                 state = Alarmed;
                 Serial.printf("Alarm from node %d\n", packet.id);
             } else {
@@ -174,6 +130,7 @@ void handlePacket(Packet packet) {
             // Add alarm to stack
             if (state != Pairing) {
                 alarms.emplace(AlarmType::LowPower, packet.id);
+                lcd.emplace(AlarmType::LowPower, packet.id);
                 state = Alarmed;
                 Serial.printf("Low power alarm from node %d\n", packet.id);
             } else {
@@ -206,17 +163,20 @@ void setup() {
     Serial.begin(115200);
     delay(2000);
 
-    pinMode(LED_BUILTIN, OUTPUT);
-    digitalWrite(LED_BUILTIN, LOW);
-
-    pinMode(alarm_led, OUTPUT);
-    digitalWrite(alarm_led, LOW);
+    pinMode(pair_led, OUTPUT);
+    digitalWrite(pair_led, HIGH);
+    pinMode(low_power_led, OUTPUT);
+    digitalWrite(low_power_led, LOW);
+    pinMode(speaker, OUTPUT);
+    noTone(speaker);
     pinMode(ack_button, INPUT);
 
     if (!comm.begin()) {
-        Serial.println("Error initializing radio");
+        Serial.println("Error initializing LoRa module");
         goto err;
     }
+
+    lcd.begin();
 
     Serial.println("Initialized");
 
@@ -240,13 +200,11 @@ void loop() {
     }
 
     Packet packet{};
-    // Serial.printf("Uninitialized: %d, %d\n", packet.type, packet.id);
     if (comm.getPacket(&packet)) {
-        // Serial.printf("Got %s packet with id %d\n", packetName(packet.type), packet.id);
+        Serial.printf("Got %s packet with id %d\n", packet.name(), packet.id);
         handlePacket(packet);
-        updateState();
         comm.startRecv();
-    } else {
-        updateState();
     }
+
+    updateState();
 }
