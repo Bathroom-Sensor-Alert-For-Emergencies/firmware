@@ -22,4 +22,28 @@ struct Packet {
 
     Packet() = default;
     Packet(PacketType type, DeviceID id) : type{type}, id{id} {}
+
+    const char* name() {
+        using enum PacketType;
+        switch (this->type) {
+            case Alarm:
+                return "Alarm";
+            case AckAlarm:
+                return "AckAlarm";
+            case LowPower:
+                return "LowPower";
+            case PairSensor:
+                return "PairSensor";
+            case PairReceiver:
+                return "PairReceiver";
+            case PairResponse:
+                return "PairResponse";
+            case Heartbeat:
+                return "Heartbeat";
+            case Disconnect:
+                return "Disconnect";
+            default:
+                return "Invalid";
+        }
+    }
 };

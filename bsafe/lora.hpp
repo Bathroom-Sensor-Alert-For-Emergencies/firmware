@@ -31,6 +31,7 @@ public:
     bool send(std::uint8_t* data, std::size_t len) override;
     bool recv(std::uint8_t* data, std::size_t len) override;
     Error getResponse(String* resp = nullptr);
+
 private:
     HardwareSerial uart;
     std::uint32_t reset;
