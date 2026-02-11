@@ -17,11 +17,11 @@ struct Alarm {
         using enum AlarmType;
         switch (this->type) {
             case Heartbeat:
-                return "heartbeat";
+                return "Disconnect";
             case Alarm:
-                return "unresponsive";
+                return "Alarm";
             case LowPower:
-                return "low power";
+                return "Low power";
         }
     }
 };

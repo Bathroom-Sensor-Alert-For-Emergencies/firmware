@@ -22,7 +22,8 @@ public:
     bool recvPacket(Packet* packet);
     virtual void startRecv() = 0;
     virtual bool getPacket(Packet* packet) = 0;
-// private:
+
+private:
     virtual bool send(std::uint8_t* data, std::size_t len) = 0;
     virtual bool recv(std::uint8_t* data, std::size_t len) = 0;
 };

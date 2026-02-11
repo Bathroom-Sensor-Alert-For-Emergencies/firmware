@@ -34,14 +34,14 @@ void updateState() {
     using enum State;
 
     // Send heartbeat
-    if (state != Pairing && millis() - last_heartbeat_ms > HEARTBEAT_PERIOD_MS) {
+    if (state != Pairing && state != Alarmed && millis() - last_heartbeat_ms > HEARTBEAT_PERIOD_MS) {
         last_heartbeat_ms = millis();
         comm.heartbeat();
         Serial.println("Sent heartbeat");
     }
 
     // Read motion detector data
-    detector.update();
+    // detector.update();
 
     switch (state) {
         case Pairing:
@@ -52,13 +52,13 @@ void updateState() {
             }
             break;
         case Idle:
-            if (detector.isUnresponsive()) state = Detected;
-            break;
-        case Detected: // TODO: Do I really need this state??
-            comm.alarm();
-            last_alarm_ms = millis();
-            state = Alarmed;
-            Serial.printf("Alarmed!\n");
+            // if (detector.isUnresponsive()) {
+            if (random(1000000) == 0) {
+                comm.alarm();
+                last_alarm_ms = millis();
+                state = Alarmed;
+                Serial.printf("Alarmed!\n");
+            }
             break;
         case Alarmed:
             if (millis() >= last_alarm_ms + ALARM_RETRY_PERIOD_MS) {
@@ -107,27 +107,26 @@ void handlePacket(Packet packet) {
 void setup() {
     Serial.begin(115200);
     delay(2000);
-
-    pinMode(LED_BUILTIN, OUTPUT);
-    digitalWrite(LED_BUILTIN, LOW);
+    Serial.println("Initialized Serial");
 
     if (!comm.begin()) {
         Serial.println("Error initializing LoRa module");
         goto err;
     }
+    Serial.println("Initialized LoRa module");
 
-    if (!detector.begin()) {
-        Serial.println("Error initializing motion detector");
-        goto err;
-    }
+    // if (!detector.begin()) {
+    //     Serial.println("Error initializing motion detector");
+    //     goto err;
+    // }
+    // Serial.println("Initialized motion detector");
 
     Serial.println("Initialized");
 
     comm.pairSensor(); // After turning on, request to pair
-    pairing_start = millis();
-    comm.startRecv();
-
     Serial.println("Sent pair sensor request");
+
+    pairing_start = millis();
 
     return;
 err:
@@ -140,12 +139,10 @@ void loop() {
         delay(2);
     }
 
-    Packet packet;
-    if (comm.getPacket(&packet)) {
+    Packet packet{};
+    if (comm.recvPacket(&packet)) {
         handlePacket(packet);
-        updateState();
-        comm.startRecv();
-    } else {
-        updateState();
     }
+
+    updateState();
 }

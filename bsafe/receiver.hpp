@@ -32,7 +32,7 @@ State state = State::Pairing;
 
 void setAlarm(bool enable) {
     // static unsigned long last_turn_on = 0;
-    // static bool enabled = false;
+    static bool enabled = false;
     //
     // if (!enabled && enable) last_turn_on = millis();
     // enabled = enable;
@@ -40,9 +40,11 @@ void setAlarm(bool enable) {
     // bool high = ((millis() - last_turn_on) / LED_BLINK_PERIOD_MS) % 2 == 0;
     // digitalWrite(alarm_led, enabled && high ? HIGH : LOW);
     // digitalWrite(alarm_led, enable ? HIGH : LOW);
-    if (enable){
-        tone(speaker, speaker_freq, speaker_duration);
-    } else {
+    if (enable && !enabled) {
+        enabled = true;
+        tone(speaker, speaker_freq);
+    } else if (!enable && enabled){
+        enabled = false;
         noTone(speaker);
     }
 }
@@ -61,8 +63,9 @@ void updateState() {
                     last_heartbeats[i] = millis();
                 }
                 state = Idle;
+                digitalWrite(pair_led, LOW);
+                lcd.clear();
                 Serial.printf("Done pairing, found %d sensors\n", num_sensors);
-                // while (true) delay(100);
             }
             break;
         case Idle:
@@ -82,15 +85,15 @@ void updateState() {
 
             if (buttonPressed()) {
                 Serial.println("Pressed alarm acknowledge button");
-                lcd.dequeue();
 
                 if (!alarms.empty()) {
+                    lcd.dequeue();
                     Alarm alarm = alarms.top();
 
                     if (alarm.type == AlarmType::Heartbeat) {
                         last_heartbeats[alarm.id] = millis(); // Give enough time for heartbeat to come
                         Serial.printf("Acknowledged heartbeat alarm for node %d\n", alarm.id);
-                    } else {
+                    } else if (alarm.type == AlarmType::Alarm) {
                         comm.ackAlarm(alarm.id);
                         Serial.printf("Sent acknowledgement to node %d for %s alarm\n", alarm.id, alarm.name());
                     }
@@ -106,6 +109,7 @@ void updateState() {
 
                 // TODO: Lazy debounce
                 while (buttonPressed()) delay(100);
+                Serial.println("Released alarm acknowledge button");
             }
             break;
     }
@@ -118,6 +122,7 @@ void handlePacket(Packet packet) {
         case Alarm:
             // Add alarm to stack
             if (state != Pairing) {
+                last_heartbeats[packet.id] = millis(); // Alarm serves as heartbeat as well to reduce traffic
                 alarms.emplace(AlarmType::Alarm, packet.id);
                 lcd.emplace(AlarmType::Alarm, packet.id);
                 state = Alarmed;
@@ -138,16 +143,23 @@ void handlePacket(Packet packet) {
             }
             break;
         case PairSensor:
+            last_heartbeats[packet.id] = millis() + PAIRING_PERIOD_MS;
             num_sensors++;
             Serial.printf("Paired new sensor. Now at %d sensors\n", num_sensors);
             break;
         case PairResponse:
-            if (state == Pairing) num_sensors++;
-            Serial.printf("Received pair response from node %d. Now at %d sensors\n", packet.id, num_sensors);
+            if (state == Pairing) {
+                num_sensors++;
+                Serial.printf("Received pair response from node %d. Now at %d sensors\n", packet.id, num_sensors);
+            } else {
+                Serial.printf("Ignoring pair response from node %d while not pairing\n", packet.id);
+            }
             break;
         case Heartbeat:
-            last_heartbeats[packet.id] = millis();
-            Serial.printf("Received heartbeat from node %d\n", packet.id);
+            if (state != Pairing) {
+                last_heartbeats[packet.id] = millis();
+                Serial.printf("Received heartbeat from node %d\n", packet.id);
+            }
             break;
         case AckAlarm: // Ignore these packets
         case PairReceiver:
@@ -162,6 +174,7 @@ void handlePacket(Packet packet) {
 void setup() {
     Serial.begin(115200);
     delay(2000);
+    Serial.println("Initialized serial");
 
     pinMode(pair_led, OUTPUT);
     digitalWrite(pair_led, HIGH);
@@ -170,29 +183,34 @@ void setup() {
     pinMode(speaker, OUTPUT);
     noTone(speaker);
     pinMode(ack_button, INPUT);
+    Serial.println("Initialized pins");
 
     if (!comm.begin()) {
         Serial.println("Error initializing LoRa module");
         goto err;
     }
+    Serial.println("Initialized LoRa module");
 
     lcd.begin();
+    Serial.println("Initialized LCD screen");
 
     Serial.println("Initialized");
 
     comm.pairReceiver(); // After turning on, request to pair
-    pairing_start = millis();
-    comm.startRecv();
-
     Serial.println("Sent pair receiver request");
+    pairing_start = millis();
+    lcd.pair();
 
     return;
 err:
     while (true) delay(100);
 }
 
+unsigned long last_print = 0;
+
 void loop() {
-    if (millis() % 1000 == 0) {
+    if (millis() - last_print > 1000) {
+        last_print = millis();
         Serial.printf("In %s state", stateName(state));
         if (state == State::Alarmed) Serial.printf(", %d alarms", alarms.size());
         Serial.printf("\n");
@@ -200,10 +218,8 @@ void loop() {
     }
 
     Packet packet{};
-    if (comm.getPacket(&packet)) {
-        Serial.printf("Got %s packet with id %d\n", packet.name(), packet.id);
+    if (comm.recvPacket(&packet)) {
         handlePacket(packet);
-        comm.startRecv();
     }
 
     updateState();

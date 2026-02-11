@@ -8,6 +8,16 @@ void LCD::begin() {
     this->lcd.clear();
 }
 
+void LCD::clear() {
+    this->lcd.clear();
+}
+
+void LCD::pair() {
+    this->lcd.clear();
+    this->lcd.setCursor(0, 1);
+    this->lcd.print("Pairing...");
+}
+
 void LCD::emplace(AlarmType type, DeviceID id) {
     this->enqueue(Alarm{type, id});
 }

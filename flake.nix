@@ -43,7 +43,8 @@
             ];
           };
           fqbn_xiao = "esp32:esp32:XIAO_ESP32C6";
-          fqbn_wroom = "esp32:esp32:esp32da";
+          # fqbn_wroom = "esp32:esp32:esp32da";
+          fqbn_wroom = "esp32:esp32:esp32";
           mkFirmware = type: fqbn: pkgs.stdenv.mkDerivation rec {
             name = "bsafe";
             src = ./.;

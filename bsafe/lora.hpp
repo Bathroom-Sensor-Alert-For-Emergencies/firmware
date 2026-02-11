@@ -23,17 +23,18 @@ public:
         InvalidResponse = 255,
     };
 
-    LoRa(std::uint32_t uart_num, std::uint32_t reset);
+    LoRa(std::uint32_t uart_num, std::uint32_t reset, std::uint32_t rx, std::uint32_t tx);
 
     bool begin() override;
     void startRecv() override;
     bool getPacket(Packet* packet) override;
     bool send(std::uint8_t* data, std::size_t len) override;
     bool recv(std::uint8_t* data, std::size_t len) override;
-    Error getResponse(String* resp = nullptr);
+    Error getResponse(String* resp = nullptr, unsigned long timeout = 0);
 
 private:
     HardwareSerial uart;
     std::uint32_t reset;
+    std::uint32_t rx;
+    std::uint32_t tx;
 };
-
