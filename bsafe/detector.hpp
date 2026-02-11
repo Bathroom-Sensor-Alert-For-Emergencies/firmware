@@ -1,24 +1,27 @@
 #pragma once
-
+#include "DFRobot_HumanDetection.h"
 #include <cstdint>
-#include <Arduino.h>
-// #include <SoftwareSerial.h>
 
 class Detector {
 public:
-    Detector(std::uint32_t otz, std::uint32_t tx, std::uint32_t rx);
+    Detector(std::uint8_t uart_num, std::uint32_t rx, std::uint32_t tx);
 
     bool begin();
     void update();
     bool isUnresponsive();
 
 private:
-    HardwareSerial serial;
-    // EspSoftwareSerial::UART serial;
-    bool detected;
-    std::uint32_t otz;
-    std::uint32_t tx;
-    std::uint32_t rx;
+    enum class State {
+        Idle,
+        Active,
+        Unconscious,
+        Alarm,
+    };
 
-    void sendHexData(String hexString);
+    HardwareSerial uart;
+    DFRobot_HumanDetection hu;
+    std::uint32_t rx;
+    std::uint32_t tx;
+    State state;
+    int timer;
 };
