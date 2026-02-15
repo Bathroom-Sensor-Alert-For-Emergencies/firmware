@@ -47,8 +47,8 @@ void updateState() {
     // Send heartbeat
     if (state != Pairing && state != Alarmed && millis() - last_heartbeat_ms > HEARTBEAT_PERIOD_MS) {
         last_heartbeat_ms = millis();
-        // comm.heartbeat();
-        // Serial.println("Sent heartbeat");
+        comm.heartbeat();
+        Serial.println("Sent heartbeat");
     }
 
     // Read motion detector data
