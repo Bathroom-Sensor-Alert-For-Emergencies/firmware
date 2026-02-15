@@ -8,13 +8,15 @@ public:
 
     bool begin();
     void update();
-    bool isUnresponsive();
+    bool shouldWarn();
+    bool shouldAlarm();
 
 private:
     enum class State {
         Idle,
         Active,
         Unconscious,
+        UnconsciousWarned,
         Alarm,
     };
 

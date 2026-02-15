@@ -30,18 +30,29 @@ std::uint8_t new_id = 0;
 
 State state = State::Pairing;
 
+void setWarn(bool enable) {
+    static bool enabled = false;
+    if (enable && !enabled) {
+        enabled = true;
+        tone(speaker, speaker_freq, speaker_duration_ms);
+    } else if (!enable && enabled){
+        enabled = false;
+        noTone(speaker);
+    }
+}
+
 void updateState() {
     using enum State;
 
     // Send heartbeat
     if (state != Pairing && state != Alarmed && millis() - last_heartbeat_ms > HEARTBEAT_PERIOD_MS) {
         last_heartbeat_ms = millis();
-        comm.heartbeat();
-        Serial.println("Sent heartbeat");
+        // comm.heartbeat();
+        // Serial.println("Sent heartbeat");
     }
 
     // Read motion detector data
-    // detector.update();
+    detector.update();
 
     switch (state) {
         case Pairing:
@@ -52,18 +63,29 @@ void updateState() {
             }
             break;
         case Idle:
-            // if (detector.isUnresponsive()) {
-            if (random(1000000) == 0) {
+            if (detector.shouldWarn()) {
+            // if (random(1000000) == 0) { // Mock
+                state = Detected;
+                Serial.println("Warned!");
+            }
+            break;
+        case Detected:
+            setWarn(true);
+            if (detector.shouldAlarm()) {
                 comm.alarm();
                 last_alarm_ms = millis();
                 state = Alarmed;
-                Serial.printf("Alarmed!\n");
+                Serial.println("Alarmed!");
+            } else if (!detector.shouldWarn()) {
+                state = Idle;
+                Serial.println("Detected movement, back to idle state");
             }
             break;
         case Alarmed:
+            setWarn(false);
             if (millis() >= last_alarm_ms + ALARM_RETRY_PERIOD_MS) {
                 comm.alarm();
-                Serial.printf("Retried alarm\n");
+                Serial.println("Retried alarm");
                 last_alarm_ms = millis();
             }
             break;
@@ -109,17 +131,20 @@ void setup() {
     delay(2000);
     Serial.println("Initialized Serial");
 
+    pinMode(speaker, OUTPUT);
+    noTone(speaker);
+
     if (!comm.begin()) {
         Serial.println("Error initializing LoRa module");
         goto err;
     }
     Serial.println("Initialized LoRa module");
 
-    // if (!detector.begin()) {
-    //     Serial.println("Error initializing motion detector");
-    //     goto err;
-    // }
-    // Serial.println("Initialized motion detector");
+    if (!detector.begin()) {
+        Serial.println("Error initializing motion detector");
+        goto err;
+    }
+    Serial.println("Initialized motion detector");
 
     Serial.println("Initialized");
 
@@ -134,10 +159,10 @@ err:
 }
 
 void loop() {
-    if (millis() % 1000 == 0) {
-        Serial.printf("In %s state\n", stateName(state));
-        delay(2);
-    }
+    // if (millis() % 1000 == 0) {
+    //     Serial.printf("In %s state\n", stateName(state));
+    //     delay(2);
+    // }
 
     Packet packet{};
     if (comm.recvPacket(&packet)) {

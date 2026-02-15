@@ -24,47 +24,68 @@ bool Detector::begin() {
 }
 
 void Detector::update() {
-    int energy;
+    bool present = this->hu.smHumanData(this->hu.eHumanPresence);
+    int energy = this->hu.smHumanData(this->hu.eHumanMovingRange);
     using enum Detector::State;
     switch (this->state) {
         case Idle:
-            if (this->hu.smHumanData(this->hu.eHumanPresence) == 1) {
+            if (present) {
                 this->state = Active;
                 Serial.println("(detector) presence detected, switching to active state");
             }
             break;
-
         case Active:
-            energy = this->hu.smHumanData(this->hu.eHumanMovingRange);
-            if (energy <= ENERGY_UNCONSCIOUS_THRESHOLD) {
+            if (!present) {
+                this->state = Idle;
+                Serial.println("(detector) no presence detected, switching to idle state");
+            } else if (energy <= ENERGY_UNCONSCIOUS_THRESHOLD) {
                 this->state = Unconscious;
                 this->timer = millis();
                 Serial.println("(detector) low energy, switching to unconscious state");
             }
             break;
-
         case Unconscious:
-            energy = this->hu.smHumanData(this->hu.eHumanMovingRange);
-            if (energy > ENERGY_UNCONSCIOUS_THRESHOLD) {
+            if (!present) {
+                this->state = Idle;
+                Serial.println("(detector) no presence detected, switching to idle state");
+            } else if (energy > ENERGY_UNCONSCIOUS_THRESHOLD) {
                 this->state = Active;
                 Serial.println("(detector) high energy, switching to active state");
-            } else if (millis() - this->timer > TIME_TO_UNCONSCIOUS_ALARM_MS) {
-                this->state = Alarm;
-                this->timer = millis();
+            } else if (millis() - this->timer > TIME_TO_UNCONSCIOUS_WARN_MS) {
+                this->state = UnconsciousWarned;
                 Serial.println("(detector) met threshold, switching to alarm state");
             }
             break;
-
+        case UnconsciousWarned:
+            if (!present) {
+                this->state = Idle;
+            } else if (energy > ENERGY_UNCONSCIOUS_THRESHOLD) {
+                this->state = Active;
+            } else if (millis() - this->timer > TIME_TO_UNCONSCIOUS_ALARM_MS) {
+                this->state = Alarm;
+                this->timer = millis();
+            }
+            break;
         case Alarm:
-            energy = this->hu.smHumanData(this->hu.eHumanMovingRange);
-            if (energy > ENERGY_UNCONSCIOUS_THRESHOLD) {
+            if (!present) {
+                this->state = Idle;
+                Serial.println("(detector) no presence detected, switching to idle state");
+            } else if (energy > ENERGY_UNCONSCIOUS_THRESHOLD) {
                 this->state = Active;
                 Serial.println("(detector) high energy, switching to active state");
             }
             break;
     }
+
+    if (state != Idle) {
+        Serial.printf("%ld,%d\n", millis(), energy);
+    }
 }
 
-bool Detector::isUnresponsive() {
+bool Detector::shouldWarn() {
+    return this->state == Detector::State::UnconsciousWarned;
+}
+
+bool Detector::shouldAlarm() {
     return this->state == Detector::State::Alarm;
 }
