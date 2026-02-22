@@ -107,6 +107,7 @@ void handlePacket(Packet packet) {
         case PairSensor:
         case PairReceiver:
             Serial.printf("Received pair request from node %d\n", packet.id);
+            last_heartbeat_ms = millis(); // Don't send next heartbeat to avoid interference
             comm.pairResponse();
             break;
         case PairResponse:

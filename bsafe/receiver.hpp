@@ -149,6 +149,7 @@ void handlePacket(Packet packet) {
             break;
         case PairResponse:
             if (state == Pairing) {
+                last_heartbeats[packet.id] = millis() + PAIRING_PERIOD_MS;
                 num_sensors++;
                 Serial.printf("Received pair response from node %d. Now at %d sensors\n", packet.id, num_sensors);
             } else {
@@ -159,6 +160,8 @@ void handlePacket(Packet packet) {
             if (state != Pairing) {
                 last_heartbeats[packet.id] = millis();
                 Serial.printf("Received heartbeat from node %d\n", packet.id);
+            } else {
+                Serial.printf("Ignoring heartbeat from node %d while pairing\n", packet.id);
             }
             break;
         case AckAlarm: // Ignore these packets
@@ -198,6 +201,7 @@ void setup() {
 
     comm.pairReceiver(); // After turning on, request to pair
     Serial.println("Sent pair receiver request");
+
     pairing_start = millis();
     lcd.pair();
 
