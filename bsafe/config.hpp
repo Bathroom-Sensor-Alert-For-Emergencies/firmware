@@ -8,7 +8,8 @@
 #if defined(SENSOR)
     // TODO: New sensor pins
     Detector detector{2, 16, 17};
-    LoRa lora{1, 23, 14, 12};
+    LoRa lora{1, 13, 25, 26}; // For big thicc board
+    // LoRa lora{1, 23, 14, 12}; // For small itty bitty board
     Communicator& comm = lora;
     const uint32_t speaker = 4;
     const int speaker_freq = 440; // A4
