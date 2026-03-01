@@ -17,7 +17,7 @@ All sensors periodically send out special heartbeat packets, and if a receiver d
 
 ## Installation
 
-To upload, install (Nix)[https://nixos.org/] and run the following command in the project's directory:
+To upload, install [Nix](https://nixos.org/) and run the following command in the project's directory:
 
 ```bash
 # Upload the sensor device's firmware
