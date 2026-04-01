@@ -1,8 +1,8 @@
 #include "config.hpp"
 #include "alarm.hpp"
 #include <Arduino.h>
-#include <stack>
-#include <vector>
+#include <deque>
+#include <bitset>
 
 enum class State {
     Pairing,
@@ -22,24 +22,16 @@ const char* stateName(State s) {
     }
 }
 
-unsigned long pairing_start = 0;
-std::uint8_t num_sensors = 0;
-unsigned long last_heartbeats[256];
-
-std::stack<Alarm> alarms{};
-
 State state = State::Pairing;
+unsigned long pairing_start = 0;
+
+unsigned long last_heartbeats[NUM_SENSORS];
+std::bitset<NUM_SENSORS> valids{};
+std::deque<Alarm> alarms{};
 
 void setAlarm(bool enable) {
-    // static unsigned long last_turn_on = 0;
     static bool enabled = false;
-    //
-    // if (!enabled && enable) last_turn_on = millis();
-    // enabled = enable;
-    //
-    // bool high = ((millis() - last_turn_on) / LED_BLINK_PERIOD_MS) % 2 == 0;
-    // digitalWrite(alarm_led, enabled && high ? HIGH : LOW);
-    // digitalWrite(alarm_led, enable ? HIGH : LOW);
+
     if (enable && !enabled) {
         enabled = true;
         tone(speaker, speaker_freq);
@@ -53,15 +45,24 @@ inline bool buttonPressed() {
     return digitalRead(ack_button) == HIGH;
 }
 
+inline void pair(DeviceID id) {
+    last_heartbeats[id] = millis() + PAIRING_PERIOD_MS;
+    valids.set(id, true);
+}
+
 void updateState() {
     using enum State;
     switch (state) {
         case Pairing:
             if (millis() > pairing_start + PAIRING_PERIOD_MS) {
                 // Initialize heartbeat timestamps
-                for (std::uint8_t i = 0; i < num_sensors; i++) {
-                    last_heartbeats[i] = millis();
+                unsigned long time = millis();
+                unsigned num_sensors = 0;
+                for (std::size_t i = 0; i < NUM_SENSORS; i++) {
+                    last_heartbeats[i] = time;
+                    if (valids[i]) num_sensors++;
                 }
+
                 state = Idle;
                 digitalWrite(pair_led, LOW);
                 lcd.clear();
@@ -70,10 +71,9 @@ void updateState() {
             break;
         case Idle:
             // Check if we haven't received a heartbeat from each paired sensor
-            for (std::uint8_t i = 0; i < num_sensors; i++) {
-                if (millis() > last_heartbeats[i] + HEARTBEAT_MAX_PERIOD_MS) {
-                    // Add heartbeat alarm to alarm stack
-                    alarms.emplace(AlarmType::Heartbeat, i);
+            for (std::size_t i = 0; i < NUM_SENSORS; i++) {
+                if (valids[i] && millis() > last_heartbeats[i] + HEARTBEAT_MAX_PERIOD_MS) {
+                    // Add heartbeat alarm to alarm queue
                     lcd.emplace(AlarmType::Heartbeat, i);
                     state = Alarmed;
                     Serial.printf("Haven't received heartbeat from node %d\n", i);
@@ -87,18 +87,15 @@ void updateState() {
                 Serial.println("Pressed alarm acknowledge button");
 
                 if (!alarms.empty()) {
-                    lcd.dequeue();
-                    Alarm alarm = alarms.top();
+                    Alarm alarm = lcd.dequeue();
 
                     if (alarm.type == AlarmType::Heartbeat) {
                         last_heartbeats[alarm.id] = millis(); // Give enough time for heartbeat to come
-                        Serial.printf("Acknowledged heartbeat alarm for node %d\n", alarm.id);
+                        Serial.printf("Acknowledged heartbeat alarm for node %s\n", ID_STRING(alarm.id));
                     } else if (alarm.type == AlarmType::Alarm) {
                         comm.ackAlarm(alarm.id);
-                        Serial.printf("Sent acknowledgement to node %d for %s alarm\n", alarm.id, alarm.name());
+                        Serial.printf("Sent acknowledgement to node %s for %s alarm\n", ID_STRING(alarm.id), alarm.name());
                     }
-
-                    alarms.pop();
                 }
 
                 if (alarms.empty()) {
@@ -123,53 +120,50 @@ void handlePacket(Packet packet) {
             // Add alarm to stack
             if (state != Pairing) {
                 last_heartbeats[packet.id] = millis(); // Alarm serves as heartbeat as well to reduce traffic
-                alarms.emplace(AlarmType::Alarm, packet.id);
                 lcd.emplace(AlarmType::Alarm, packet.id);
                 state = Alarmed;
-                Serial.printf("Alarm from node %d\n", packet.id);
+                Serial.printf("Alarm from node %s\n", ID_STRING(packet.id));
             } else {
-                Serial.printf("Ignoring alarm from node %d while pairing\n", packet.id);
+                Serial.printf("Ignoring alarm from node %s while pairing\n", ID_STRING(packet.id));
             }
             break;
         case LowPower:
             // Add alarm to stack
             if (state != Pairing) {
-                alarms.emplace(AlarmType::LowPower, packet.id);
                 lcd.emplace(AlarmType::LowPower, packet.id);
                 state = Alarmed;
-                Serial.printf("Low power alarm from node %d\n", packet.id);
+                Serial.printf("Low power alarm from node %s\n", ID_STRING(packet.id));
             } else {
-                Serial.printf("Ignoring low power warning from node %d while pairing\n", packet.id);
+                Serial.printf("Ignoring low power warning from node %d while pairing\n", ID_STRING(packet.id));
             }
             break;
         case PairSensor:
-            last_heartbeats[packet.id] = millis() + PAIRING_PERIOD_MS;
-            num_sensors++;
-            Serial.printf("Paired new sensor. Now at %d sensors\n", num_sensors);
+            pair(packet.id);
+            Serial.printf("Paired new sensor. Now at %d sensors\n");
             break;
         case PairResponse:
             if (state == Pairing) {
-                last_heartbeats[packet.id] = millis() + PAIRING_PERIOD_MS;
-                num_sensors++;
-                Serial.printf("Received pair response from node %d. Now at %d sensors\n", packet.id, num_sensors);
+                pair(packet.id);
+                Serial.printf("Received pair response from node %d\n", ID_STRING(packet.id));
             } else {
-                Serial.printf("Ignoring pair response from node %d while not pairing\n", packet.id);
+                Serial.printf("Ignoring pair response from node %d while not pairing\n", ID_STRING(packet.id));
             }
             break;
         case Heartbeat:
             if (state != Pairing) {
                 last_heartbeats[packet.id] = millis();
-                Serial.printf("Received heartbeat from node %d\n", packet.id);
+                Serial.printf("Received heartbeat from node %d\n", ID_STRING(packet.id));
             } else {
-                Serial.printf("Ignoring heartbeat from node %d while pairing\n", packet.id);
+                Serial.printf("Ignoring heartbeat from node %s while pairing\n", ID_STRING(packet.id));
             }
+            break;
+        case Disconnect:
+            valids.set(packet.id, false);
             break;
         case AckAlarm: // Ignore these packets
         case PairReceiver:
-        case Disconnect: // TODO
-            break;
-        default: // TODO: Remember to test bad packet type
-            Serial.printf("Unknown packet type (%d, %d) received\n", packet.type, packet.id);
+        default:
+            Serial.printf("Unknown packet type (%d) received from node %s\n", packet.type, ID_STRING(packet.id));
             break;
     }
 }
@@ -194,7 +188,7 @@ void setup() {
     }
     Serial.println("Initialized LoRa module");
 
-    lcd.begin();
+    lcd.begin(&alarms);
     Serial.println("Initialized LCD screen");
 
     Serial.println("Initialized");

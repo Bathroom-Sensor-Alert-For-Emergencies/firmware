@@ -1,5 +1,11 @@
 #pragma once
+
 #include <cstdint>
+
+#define ID(letter, number) (((DeviceID)(((letter) - 'A') << 3) + (number)))
+#define ID_STRING(id) ((char[]) { ID_LETTER(id), ID_NUMBER(id) + '0', '\0' })
+#define ID_LETTER(id) ((char)((id) >> 3) + 'A')
+#define ID_NUMBER(id) ((id) & ((1 << 3) - 1))
 
 enum class PacketType : std::uint8_t {
     // Invalid = 0,

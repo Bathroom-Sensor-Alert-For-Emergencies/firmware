@@ -26,7 +26,6 @@ const char* stateName(State s) {
 unsigned long last_heartbeat_ms = 0;
 unsigned long last_alarm_ms = 0;
 unsigned long pairing_start = 0;
-std::uint8_t new_id = 0;
 
 State state = State::Pairing;
 
@@ -57,9 +56,8 @@ void updateState() {
     switch (state) {
         case Pairing:
             if (millis() - pairing_start > PAIRING_PERIOD_MS) {
-                comm.id = new_id;
                 state = Idle;
-                Serial.printf("Done pairing, got id %d\n", new_id);
+                Serial.printf("Done pairing, id %s (%d)\n", ID_STRING(comm.id), comm.id);
             }
             break;
         case Idle:
@@ -99,30 +97,24 @@ void handlePacket(Packet packet) {
         case AckAlarm:
             if (packet.id == comm.id && state == Alarmed) {
                 state = Idle;
-                Serial.printf("Node %d acknowledged alarm\n", packet.id);
+                Serial.printf("Node %s acknowledged alarm\n", ID_STRING(packet.id));
             } else {
-                Serial.printf("Noticed alarm acknowledgement for node %d\n", packet.id);
+                Serial.printf("Ignoring alarm acknowledgement for node %s\n", ID_STRING(packet.id));
             }
             break;
         case PairSensor:
         case PairReceiver:
-            Serial.printf("Received pair request from node %d\n", packet.id);
+            Serial.printf("Received pair request from node %s\n", ID_STRING(packet.id));
             last_heartbeat_ms = millis(); // Don't send next heartbeat to avoid interference
             comm.pairResponse();
-            break;
-        case PairResponse:
-            Serial.printf("Received pair response from node %d\n", packet.id);
-            if (state == Pairing) {
-                // Our ID must be 1 greater than the maximum ID in the network
-                new_id = new_id >= packet.id ? new_id : packet.id + 1;
-            }
             break;
         case Alarm: // Ignore these packets
         case LowPower:
         case Heartbeat:
+        case PairResponse:
             break;
         default: // TODO: Test bad packet type
-            Serial.printf("Unknown packet type (%d) received\n", packet.type);
+            Serial.printf("Unknown packet type (%d) received from node %s\n", packet.type, ID_STRING(packet.id));
             break;
     }
 }
@@ -160,11 +152,6 @@ err:
 }
 
 void loop() {
-    // if (millis() % 1000 == 0) {
-    //     Serial.printf("In %s state\n", stateName(state));
-    //     delay(2);
-    // }
-
     Packet packet{};
     if (comm.recvPacket(&packet)) {
         handlePacket(packet);

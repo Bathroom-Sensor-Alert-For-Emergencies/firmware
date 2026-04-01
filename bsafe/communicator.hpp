@@ -1,13 +1,14 @@
 #pragma once
 
 #include "packet.hpp"
+#include "constants.hpp"
 #include <cstdint>
 
 class Communicator {
 public:
     DeviceID id;
 
-    Communicator() : id{0} {}
+    Communicator() : id{MY_ID} {}
 
     virtual bool begin();
     bool alarm();

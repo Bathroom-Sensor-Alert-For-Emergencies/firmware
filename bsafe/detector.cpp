@@ -9,17 +9,12 @@ bool Detector::begin() {
     this->uart.begin(115200, SERIAL_8N1, this->rx, this->tx);
     while (this->hu.begin() != 0) delay(100);
     Serial.println("(begin) Initialized sensor");
+
     while (this->hu.configWorkMode(this->hu.eFallingMode) != 0) delay(100);
     Serial.println("(begin) Configured work mode");
 
-    this->hu.configLEDLight(this->hu.eFALLLed, 1);        // Set HP LED switch, it will not light up even if the sensor detects a person present when set to 0.
-    this->hu.configLEDLight(this->hu.eHPLed, 1);          // Set FALL LED switch, it will not light up even if the sensor detects a person falling when set to 0.
-    this->hu.dmInstallHeight(281);                        // Set installation height, it needs to be set according to the actual height of the surface from the sensor, unit: CM.
-    this->hu.dmFallTime(1);                               // Set fall time, the sensor needs to delay the current set time after detecting a person falling before outputting the detected fall, this can avoid false triggering, unit: seconds.
-    this->hu.dmUnmannedTime(1);                           // Set unattended time, when a person leaves the sensor detection range, the sensor delays a period of time before outputting a no person status, unit: seconds.
-    this->hu.dmFallConfig(this->hu.eResidenceTime, 200);  // Set dwell time, when a person remains still within the sensor detection range for more than the set time, the sensor outputs a stationary dwell status. Unit: seconds.
-    this->hu.dmFallConfig(this->hu.eFallSensitivityC, 3); // Set fall sensitivity, range 0~3, the larger the value, the more sensitive.
-    this->hu.sensorRet();                                 // Module reset, must perform sensorRet after setting data, otherwise the sensor may not be usable.
+    this->hu.sensorRet(); // Module reset, must run after setting data, otherwise the sensor may not be usable
+
     return true;
 }
 
@@ -77,9 +72,9 @@ void Detector::update() {
             break;
     }
 
-    if (state != Idle) {
-        Serial.printf("%ld,%d\n", millis(), energy);
-    }
+    // if (state != Idle) {
+    //     Serial.printf("%ld,%d\n", millis(), energy);
+    // }
 }
 
 bool Detector::shouldWarn() {

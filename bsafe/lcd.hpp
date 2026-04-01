@@ -9,14 +9,16 @@ class LCD {
 public:
     LCD(int rs, int en, int d4, int d5, int d6, int d7);
 
-    void begin();
+    void begin(std::deque<Alarm>* alarms);
     void clear();
     void pair();
+    void pairedId(DeviceID id);
     void emplace(AlarmType type, DeviceID id);
     void enqueue(Alarm alarm);
-    void dequeue();
-
+    Alarm dequeue();
 private:
+    void printId(DeviceID id);
+
     LiquidCrystal lcd;
-    std::deque<Alarm> alarms;
+    std::deque<Alarm>* alarms;
 };
