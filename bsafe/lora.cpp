@@ -48,7 +48,7 @@ bool LoRa::send(std::uint8_t* data, std::size_t len) {
 }
 
 static std::uint8_t fromHex(char c) {
-    return c >= '0' && c <= '9' ? c - '0' : c - 'A';
+    return c >= '0' && c <= '9' ? c - '0' : c - 'A' + 10;
 }
 
 bool LoRa::recv(std::uint8_t* data, std::size_t len) {

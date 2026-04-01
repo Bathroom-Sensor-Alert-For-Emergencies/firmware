@@ -12,6 +12,7 @@ public:
     void begin(std::deque<Alarm>* alarms);
     void clear();
     void pair();
+    void paired(DeviceID id);
     void pairedId(DeviceID id);
     void emplace(AlarmType type, DeviceID id);
     void enqueue(Alarm alarm);

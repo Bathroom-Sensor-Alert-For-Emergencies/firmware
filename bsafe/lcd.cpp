@@ -19,6 +19,13 @@ void LCD::pair() {
     this->lcd.print("Pairing...");
 }
 
+void LCD::paired(DeviceID id) {
+    this->lcd.clear();
+    this->lcd.setCursor(0, 0);
+    this->lcd.print("Paired ");
+    this->printId(id);
+}
+
 void LCD::printId(DeviceID id) {
     this->lcd.print(ID_STRING(id));
 }

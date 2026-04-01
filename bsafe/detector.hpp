@@ -10,6 +10,7 @@ public:
     void update();
     bool shouldWarn();
     bool shouldAlarm();
+    void acknowledge();
 
 private:
     enum class State {

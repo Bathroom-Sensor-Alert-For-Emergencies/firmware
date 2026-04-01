@@ -66,7 +66,7 @@ void updateState() {
                 state = Idle;
                 digitalWrite(pair_led, LOW);
                 lcd.clear();
-                Serial.printf("Done pairing, found %d sensors\n", num_sensors);
+                Serial.printf("Done pairing, found %d sensors, id %s (%d)\n", num_sensors, ID_STRING(comm.id), comm.id);
             }
             break;
         case Idle:
@@ -139,11 +139,13 @@ void handlePacket(Packet packet) {
             break;
         case PairSensor:
             pair(packet.id);
+            lcd.paired(packet.id);
             Serial.printf("Paired new sensor. Now at %d sensors\n");
             break;
         case PairResponse:
             if (state == Pairing) {
                 pair(packet.id);
+                lcd.pairedId(packet.id);
                 Serial.printf("Received pair response from node %d\n", ID_STRING(packet.id));
             } else {
                 Serial.printf("Ignoring pair response from node %d while not pairing\n", ID_STRING(packet.id));
@@ -152,7 +154,7 @@ void handlePacket(Packet packet) {
         case Heartbeat:
             if (state != Pairing) {
                 last_heartbeats[packet.id] = millis();
-                Serial.printf("Received heartbeat from node %d\n", ID_STRING(packet.id));
+                Serial.printf("Received heartbeat from node %s\n", ID_STRING(packet.id));
             } else {
                 Serial.printf("Ignoring heartbeat from node %s while pairing\n", ID_STRING(packet.id));
             }

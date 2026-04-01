@@ -97,9 +97,10 @@ void handlePacket(Packet packet) {
         case AckAlarm:
             if (packet.id == comm.id && state == Alarmed) {
                 state = Idle;
+                detector.acknowledge();
                 Serial.printf("Node %s acknowledged alarm\n", ID_STRING(packet.id));
             } else {
-                Serial.printf("Ignoring alarm acknowledgement for node %s\n", ID_STRING(packet.id));
+                Serial.printf("Ignoring alarm acknowledgement for node %s, state = %d\n", ID_STRING(packet.id), state);
             }
             break;
         case PairSensor:

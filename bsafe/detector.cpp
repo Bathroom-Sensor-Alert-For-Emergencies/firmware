@@ -84,3 +84,9 @@ bool Detector::shouldWarn() {
 bool Detector::shouldAlarm() {
     return this->state == Detector::State::Alarm;
 }
+
+void Detector::acknowledge() {
+    using enum Detector::State;
+    this->state = Idle;
+    this->timer = millis();
+}
