@@ -3,8 +3,8 @@
 #include "packet.hpp"
 
 // const DeviceID MY_ID = ID('A', 1);
-// const DeviceID MY_ID = ID('A', 2);
-const DeviceID MY_ID = ID('B', 1);
+const DeviceID MY_ID = ID('A', 2);
+// const DeviceID MY_ID = ID('B', 1);
 // const DeviceID MY_ID = ID('B', 2);
 const std::size_t NUM_SENSORS = 256;
 const unsigned long HEARTBEAT_PERIOD_MS = 5 * 1000;

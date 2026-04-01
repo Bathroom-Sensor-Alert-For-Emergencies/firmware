@@ -154,6 +154,11 @@ void handlePacket(Packet packet) {
         case Heartbeat:
             if (state != Pairing) {
                 last_heartbeats[packet.id] = millis();
+                if (!valids[packet.id]) {
+                    valids.set(packet.id, true);
+                    pair(packet.id);
+                    lcd.paired(packet.id);
+                }
                 Serial.printf("Received heartbeat from node %s\n", ID_STRING(packet.id));
             } else {
                 Serial.printf("Ignoring heartbeat from node %s while pairing\n", ID_STRING(packet.id));
